@@ -12,11 +12,18 @@ const nextConfig = {
         pathname: "/wikipedia/commons/**", // Tillater bilder fra /wikipedia/commons/ og undermapper
       },
       {
-        // Lagt til for fallback-bildene dine
+        // For fallback-bildene dine
         protocol: "https",
         hostname: "placehold.co",
         port: "",
         pathname: "/**", // Tillater alle stier fra placehold.co
+      },
+      {
+        // NYTT: Lagt til for transparentpng.com bildene
+        protocol: "https",
+        hostname: "www.transparentpng.com",
+        port: "",
+        pathname: "/thumb/**", // Tillater alle bilder under /thumb/ stien
       },
       // Du kan legge til flere remotePatterns her for andre domener senere
     ],
