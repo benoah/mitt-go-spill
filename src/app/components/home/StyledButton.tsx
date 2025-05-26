@@ -1,4 +1,3 @@
-// src/app/components/home/StyledButton.tsx
 "use client";
 
 import React, { useState } from "react";
@@ -9,8 +8,9 @@ interface StyledButtonProps extends React.PropsWithChildren {
   onClick?: (event: React.MouseEvent<HTMLElement>) => void;
   variant?: "primary" | "secondary";
   className?: string;
-  type?: "button" | "submit" | "reset"; // Kun relevant for <button>
-  as?: "button" | "a"; // Bestemmer om det er en <button> eller <Link>/<a>
+  type?: "button" | "submit" | "reset";
+  as?: "button" | "a";
+  disabled?: boolean; // <--- Lagt til disabled prop her
 }
 
 const StyledButton: React.FC<StyledButtonProps> = ({
@@ -19,26 +19,25 @@ const StyledButton: React.FC<StyledButtonProps> = ({
   variant = "primary",
   children,
   className = "",
-  type = "button", // Standard type for <button> elementer
-  as = href ? "a" : "button", // Standard til 'a' hvis href er gitt, ellers 'button'
+  type = "button",
+  as = href ? "a" : "button",
+  disabled = false, // <--- Standardverdi for disabled
 }) => {
   const [isPressed, setIsPressed] = useState(false);
 
-  // Grunnleggende Tailwind-klasser for knappen
   const baseClasses = `
     py-[10px] px-[20px] rounded-xl font-bold inline-flex items-center justify-center
     uppercase tracking-[0.5px] transition-transform transition-shadow duration-[80ms]
-    ease-out cursor-pointer text-base leading-normal min-w-[180px]
+    ease-out text-base leading-normal min-w-[180px]
     focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
-  `; // Fokusstiler for tilgjengelighet
+  `;
 
-  // Stilvarianter for primær og sekundær knapp
   const variantStyles = {
     primary: {
       bg: "bg-[var(--button-primary-bg)]",
       text: "text-[var(--button-primary-text)]",
       border: "border-[3px] border-[var(--button-primary-border)]",
-      ringFocus: "focus-visible:ring-[var(--button-primary-border)]", // For focus-visible
+      ringFocus: "focus-visible:ring-[var(--button-primary-border)]",
       shadowBase:
         "shadow-[0px_6px_0px_var(--button-primary-border),_2px_8px_10px_var(--button-primary-shadow-color)]",
       shadowPressed:
@@ -47,8 +46,8 @@ const StyledButton: React.FC<StyledButtonProps> = ({
     secondary: {
       bg: "bg-[var(--button-secondary-bg)]",
       text: "text-[var(--button-secondary-text)]",
+      ringFocus: "focus-visible:ring-[var(--button-secondary-border)]",
       border: "border-[3px] border-[var(--button-secondary-border)]",
-      ringFocus: "focus-visible:ring-[var(--button-secondary-border)]", // For focus-visible
       shadowBase:
         "shadow-[0px_6px_0px_var(--button-secondary-border),_2px_8px_10px_var(--button-secondary-shadow-color)]",
       shadowPressed:
@@ -58,73 +57,95 @@ const StyledButton: React.FC<StyledButtonProps> = ({
 
   const currentVariant = variantStyles[variant];
 
-  // Kombinerer alle klassene
   const combinedClasses = `
     ${baseClasses}
     ${currentVariant.bg}
     ${currentVariant.text}
     ${currentVariant.border}
     ${currentVariant.ringFocus}
-    ${isPressed ? currentVariant.shadowPressed : currentVariant.shadowBase}
-    ${isPressed ? "translate-y-1" : "translate-y-0"}
+    ${
+      isPressed && !disabled
+        ? currentVariant.shadowPressed
+        : currentVariant.shadowBase
+    }
+    ${isPressed && !disabled ? "translate-y-1" : "translate-y-0"}
+    ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
     ${className}
   `
     .trim()
-    .replace(/\s+/g, " "); // Fjerner overflødige mellomrom
+    .replace(/\s+/g, " ");
 
-  // Event-håndterere for visuell "trykket"-effekt
   const handleMouseDown = () => {
+    if (disabled) return;
     setIsPressed(true);
-    // onClick kalles ikke lenger her; det håndteres av det underliggende elementet
   };
 
   const handleMouseUp = () => {
+    if (disabled) return;
     setIsPressed(false);
   };
 
   const handleMouseLeave = () => {
+    if (disabled) return;
     if (isPressed) {
-      setIsPressed(false); // Nullstill hvis musen forlater knappen mens den er trykket
+      setIsPressed(false);
     }
   };
 
   const handleFocus = (e: React.FocusEvent<HTMLElement>) => {
-    // Forhindrer at knappen blir "sticky" hvis man tabber bort mens museknappen er nede
+    if (disabled) return;
     if (isPressed && document.activeElement !== e.currentTarget) {
       setIsPressed(false);
     }
   };
 
-  // Rendrer som en Next.js Link hvis 'as' er 'a' og 'href' er gitt
   if (as === "a" && href) {
+    // For Link/<a>, 'disabled' er ikke et gyldig HTML-attributt.
+    // Vi håndterer deaktivert utseende og oppførsel via CSS (opacity, cursor-not-allowed)
+    // og ved å forhindre onClick-hendelsen hvis 'disabled' er true.
+    const handleClickForLink = (e: React.MouseEvent<HTMLElement>) => {
+      if (disabled) {
+        e.preventDefault(); // Forhindrer navigasjon for deaktivert lenke
+        return;
+      }
+      if (onClick) {
+        onClick(e);
+      }
+    };
+
     return (
       <Link
-        href={href}
+        href={disabled ? "#" : href} // Kan sette href til # for å unngå navigasjon, eller la den være
         className={combinedClasses}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
         onFocus={handleFocus}
-        onBlur={() => setIsPressed(false)} // Sikrer at "pressed" tilstand fjernes ved blur
-        onClick={onClick} // Next.js Link håndterer onClick for navigasjon eller egendefinert logikk
-        // 'type' prop sendes ikke til Link/<a>
+        onBlur={() => {
+          if (!disabled) setIsPressed(false);
+        }}
+        onClick={handleClickForLink}
+        aria-disabled={disabled} // Viktig for tilgjengelighet
+        tabIndex={disabled ? -1 : undefined} // Fjern fra tab-rekkefølge hvis deaktivert
       >
         {children}
       </Link>
     );
   }
 
-  // Ellers, rendrer som en standard <button>
   return (
     <button
-      type={type} // 'type' er relevant for <button>
+      type={type}
       className={combinedClasses}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
       onFocus={handleFocus}
-      onBlur={() => setIsPressed(false)}
+      onBlur={() => {
+        if (!disabled) setIsPressed(false);
+      }}
       onClick={onClick}
+      disabled={disabled} // <--- disabled-attributtet sendes videre til <button>
     >
       {children}
     </button>
